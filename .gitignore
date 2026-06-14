@@ -1,0 +1,13 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node (only if you add tooling later)
+node_modules/
+npm-debug.log*
+
+# Local Firebase config notes (keep secrets out of git if you ever add a file)
+firebase-config.local.js
