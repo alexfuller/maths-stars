@@ -2,7 +2,9 @@
 
 A simple, friendly web app for practising mental arithmetic. Works the same on a laptop, iPhone, or iPad. White background, big buttons, an on-screen number pad, and a star/score reward at the end. Every session is quietly timed and saved with the date so you can track progress over time.
 
-Everything lives in one file: **`index.html`**. There is no build step.
+The UI markup lives in **`index.html`**; the JavaScript is split into small ES modules under **`src/`** (`src/app.js` for the UI, `src/logic/*` for pure logic). There is still **no build step** — the browser loads the modules natively.
+
+> **Heads-up:** because it now uses ES modules, opening `index.html` by double-clicking (`file://`) no longer works — browsers block module loading over `file://`. Run it through a local server instead (see *Development* below). The live site on GitHub Pages is unaffected.
 
 ---
 
@@ -21,15 +23,37 @@ Everything lives in one file: **`index.html`**. There is no build step.
 - **Tunable session length** — 5 to 50 questions, in steps of 5 (default 10). Set it with the −/+ buttons on the home screen.
 - **Hidden timer** — the clock is never shown during a session (no pressure), but total time, time-per-question, score, answers, and the date are all saved.
 - **History & progress** — tap **📊 History** to see past sessions, filter by level, and view accuracy and speed trends.
-- **Separate players** — tap the **👤** name at the top right to switch player, so each child's scores are kept apart.
+- **Family & players** — everyone shares a **family name**, and each person has their own **player name** within it. On first use you enter the family name, then your player name. Tap the **👪 / 👤** label at the top right to switch player or change family. Scores are kept per player but the whole family can see each other's history.
 
 ---
 
-## Getting started (try it in 10 seconds)
+## Getting started
 
-Just double-click **`index.html`** — it opens in your browser and works immediately. At this stage, scores are saved **only on that one device/browser**.
+The app is hosted on **GitHub Pages** — just open the site URL on any device. Scores are saved on that device/browser unless you turn on cloud sync (below).
 
-To use it on the iPhone and iPad too, and to have all scores in one place, set up free cloud sync and hosting below.
+To run it locally, see *Development* below (a one-line static server — double-clicking the file won't work now that it uses ES modules).
+
+To use it on the iPhone and iPad too, and to have all scores in one place, set up free cloud sync below.
+
+---
+
+## Development
+
+No build step and no dependencies to install. You just need [Node.js](https://nodejs.org) (for the tests) and any static file server.
+
+```bash
+# Run locally (serves the folder at http://localhost:3000)
+npm run serve        # → npx serve . -l 3000
+
+# Run the tests (pure-logic unit tests, no browser needed)
+npm test             # → node --test on tests/*.test.js
+```
+
+Layout:
+- `index.html` — markup and styles
+- `src/app.js` — UI wiring, storage, Firebase (the side-effecty shell)
+- `src/logic/` — pure logic: `questions.js`, `schema.js`, `storage-keys.js`, `stats.js`
+- `tests/` — unit tests for the logic modules
 
 ---
 
@@ -68,7 +92,7 @@ const firebaseConfig = {
 2. Paste the `{ ... }` config into the box and tap **Save & connect**.
 3. The tag at the top should change to **☁️ Synced**.
 
-Do this once on each device (laptop, iPhone, iPad) using the **same** config, and use the **same player name** on each. Scores will then appear everywhere.
+Do this once on each device (laptop, iPhone, iPad) using the **same** config, and enter the **same family name** on each. Each person picks their own **player name** within the family, and everyone in the family can see each other's scores. Scores will then appear everywhere.
 
 > **Note on the database rule:** Test mode leaves the database open for 30 days. For a low-stakes family arithmetic app that's usually fine, but if you'd like, I can give you a one-line security rule to lock it down — just ask.
 

@@ -176,7 +176,7 @@
     <div class="brand"><span class="logo">⭐</span><span>Maths Stars</span></div>
     <div class="who">
       <span id="syncTag" class="sync-tag sync-off">On this device</span>
-      <button class="linklike" id="profileBtn">👤 <span id="profileName">Player</span></button>
+      <button class="linklike" id="profileBtn">👪 <span id="familyName">Family</span> · 👤 <span id="profileName">Player</span></button>
     </div>
   </header>
 
@@ -251,13 +251,29 @@
   <section id="screen-history" class="hidden">
     <div class="controls">
       <button class="btn gray" id="backFromHistory">‹ Back</button>
-      <select id="histFilter" style="margin-left:auto"></select>
+      <select id="histPlayer" style="margin-left:auto"></select>
+      <select id="histFilter"></select>
     </div>
     <div id="histSummary"></div>
     <h2 class="section">Recent sessions</h2>
     <div id="histList"></div>
   </section>
 
+</div>
+
+<!-- Family modal -->
+<div id="familyModal" class="modal-bg hidden">
+  <div class="modal">
+    <h3>👪 What's your family name?</h3>
+    <p>Everyone in the same family shares a name here, so you can all see each other's scores. Each person then picks their own player name.</p>
+    <div class="field">
+      <label>Family name</label>
+      <input type="text" id="familyInput" placeholder="e.g. The Smiths" maxlength="30" />
+    </div>
+    <div class="row">
+      <button class="btn full" id="saveFamily">Continue</button>
+    </div>
+  </div>
 </div>
 
 <!-- Profile modal -->
@@ -271,6 +287,9 @@
     </div>
     <div class="row">
       <button class="btn full" id="saveProfile">Save</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost full" id="editFamilyBtn">👪 Change family (<span id="profileFamilyName">Family</span>)</button>
     </div>
     <div class="row">
       <button class="btn ghost full" id="openSyncBtn">☁️ Cloud sync settings</button>
@@ -296,391 +315,6 @@
   </div>
 </div>
 
-<script>
-/* ============================================================
-   Maths Stars — single-file mental arithmetic practice app
-   ============================================================ */
-
-/* ---------- Level definitions ---------- */
-const LEVELS = [
-  { id:1, cls:'c-add', icon:'+', title:'Addition', sub:'Numbers under 10', kinds:['add10'] },
-  { id:2, cls:'c-add', icon:'+', title:'Addition', sub:'Numbers under 20', kinds:['add20'] },
-  { id:3, cls:'c-sub', icon:'−', title:'Subtraction', sub:'Numbers under 10', kinds:['sub10'] },
-  { id:4, cls:'c-sub', icon:'−', title:'Subtraction', sub:'Numbers under 20', kinds:['sub20'] },
-  { id:5, cls:'c-mul', icon:'×', title:'Multiplication', sub:'Up to 12', kinds:['mul12'] },
-  { id:6, cls:'c-div', icon:'÷', title:'Division', sub:'Up to 12', kinds:['div12'] },
-  { id:7, cls:'c-mix', icon:'±', title:'Mixed: + and −', sub:'Levels 2 & 4', kinds:['add20','sub20'] },
-  { id:8, cls:'c-mix', icon:'⨯', title:'Mixed: × and ÷', sub:'Levels 5 & 6', kinds:['mul12','div12'] },
-  { id:9, cls:'c-mix', icon:'∞', title:'Mixed: all', sub:'Levels 2, 4, 5 & 6', kinds:['add20','sub20','mul12','div12'] },
-];
-
-const rnd = (min,max)=> Math.floor(Math.random()*(max-min+1))+min;
-
-/* Build one question {text, answer} for a given kind */
-function makeQuestion(kind){
-  let a,b;
-  switch(kind){
-    case 'add10': a=rnd(1,9); b=rnd(1,9); return {text:`${a} + ${b}`, answer:a+b};
-    case 'add20': a=rnd(1,19); b=rnd(1,19); return {text:`${a} + ${b}`, answer:a+b};
-    case 'sub10': a=rnd(1,9); b=rnd(0,a); return {text:`${a} − ${b}`, answer:a-b};
-    case 'sub20': a=rnd(1,19); b=rnd(0,a); return {text:`${a} − ${b}`, answer:a-b};
-    case 'mul12': a=rnd(1,12); b=rnd(1,12); return {text:`${a} × ${b}`, answer:a*b};
-    case 'div12': { const q=rnd(1,12), d=rnd(1,12); return {text:`${d*q} ÷ ${d}`, answer:q}; }
-  }
-}
-
-function makeSession(level, n){
-  const qs=[];
-  for(let i=0;i<n;i++){
-    const kind = level.kinds[rnd(0,level.kinds.length-1)];
-    qs.push(makeQuestion(kind));
-  }
-  return qs;
-}
-
-/* ---------- App state ---------- */
-const state = {
-  profile: localStorage.getItem('ms_profile') || '',
-  qPerSession: parseInt(localStorage.getItem('ms_qcount')||'10',10),
-  level:null, questions:[], idx:0, current:'', score:0,
-  startTime:0, qStartTime:0, results:[], sessionStart:0,
-};
-
-let fb = null; // {db, addDoc, getDocs, collection, query, where, orderBy}
-
-/* ---------- Screen helpers ---------- */
-const screens = ['home','session','results','history'];
-function show(name){
-  screens.forEach(s=> document.getElementById('screen-'+s).classList.toggle('hidden', s!==name));
-  window.scrollTo(0,0);
-}
-const $ = id => document.getElementById(id);
-
-/* ---------- Firebase (optional) ---------- */
-async function initFirebase(){
-  const raw = localStorage.getItem('ms_fbconfig');
-  if(!raw){ setSyncTag(false); return; }
-  let cfg;
-  try{ cfg = JSON.parse(raw); }catch(e){ setSyncTag(false); return; }
-  if(!cfg || !cfg.apiKey || !cfg.projectId){ setSyncTag(false); return; }
-  try{
-    const appMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-    const fsMod  = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    const app = appMod.initializeApp(cfg);
-    const db = fsMod.getFirestore(app);
-    fb = { db, ...fsMod };
-    setSyncTag(true);
-  }catch(e){
-    console.warn('Firebase init failed:', e);
-    setSyncTag(false);
-  }
-}
-function setSyncTag(on){
-  const t = $('syncTag');
-  t.textContent = on ? '☁️ Synced' : 'On this device';
-  t.className = 'sync-tag ' + (on?'sync-on':'sync-off');
-}
-
-/* ---------- Storage ---------- */
-function localKey(){ return 'ms_sessions_' + (state.profile||'default'); }
-function loadLocalSessions(){
-  try{ return JSON.parse(localStorage.getItem(localKey())||'[]'); }catch(e){ return []; }
-}
-function saveLocalSession(rec){
-  const all = loadLocalSessions();
-  all.unshift(rec);
-  localStorage.setItem(localKey(), JSON.stringify(all.slice(0,500)));
-}
-async function saveSession(rec){
-  saveLocalSession(rec);
-  if(fb){
-    try{
-      await fb.addDoc(fb.collection(fb.db,'sessions'), rec);
-    }catch(e){ console.warn('Cloud save failed (kept locally):', e); }
-  }
-}
-async function getSessions(){
-  if(fb){
-    try{
-      const q = fb.query(
-        fb.collection(fb.db,'sessions'),
-        fb.where('profile','==', state.profile||'default'),
-        fb.orderBy('date','desc')
-      );
-      const snap = await fb.getDocs(q);
-      const out=[]; snap.forEach(d=> out.push(d.data()));
-      return out;
-    }catch(e){ console.warn('Cloud read failed, using local:', e); }
-  }
-  return loadLocalSessions();
-}
-
-/* ---------- Home rendering ---------- */
-function bestForLevel(levelId, sessions){
-  const ls = sessions.filter(s=> s.level===levelId);
-  if(!ls.length) return null;
-  let best = ls[0];
-  ls.forEach(s=>{ if(s.correct>best.correct || (s.correct===best.correct && s.timeMs<best.timeMs)) best=s; });
-  return best;
-}
-async function renderHome(){
-  $('qVal').textContent = state.qPerSession;
-  $('profileName').textContent = state.profile || 'Player';
-  const grid = $('levelGrid');
-  grid.innerHTML='';
-  const sessions = await getSessions().catch(()=>loadLocalSessions());
-  LEVELS.forEach(L=>{
-    const best = bestForLevel(L.id, sessions);
-    const div=document.createElement('button');
-    div.className='level '+L.cls;
-    div.innerHTML = `
-      <div class="badge">${L.icon}</div>
-      <div class="title">${L.id}. ${L.title}</div>
-      <div class="sub">${L.sub}</div>
-      <div class="best">${best ? '★ Best '+best.correct+'/'+best.total+' · '+fmtTime(best.timeMs) : 'Not tried yet'}</div>`;
-    div.onclick = ()=> startSession(L);
-    grid.appendChild(div);
-  });
-  $('homeTip').textContent = fb ? 'Scores sync across your devices ☁️'
-    : 'Tip: turn on cloud sync (👤 → Cloud sync) to share scores across devices.';
-}
-
-/* ---------- Session flow ---------- */
-function startSession(level){
-  state.level = level;
-  state.questions = makeSession(level, state.qPerSession);
-  state.idx = 0; state.current=''; state.score=0; state.results=[];
-  state.sessionStart = Date.now();
-  show('session');
-  loadQuestion();
-}
-function loadQuestion(){
-  const q = state.questions[state.idx];
-  $('questionText').textContent = q.text + ' =';
-  state.current='';
-  updateAnswerBox();
-  $('feedback').textContent=''; $('feedback').className='feedback';
-  $('answerBox').className='answer-box empty';
-  $('qProgressText').textContent = (state.idx+1)+' / '+state.questions.length;
-  $('liveScore').textContent = '★ '+state.score;
-  $('progressBar').style.width = (state.idx/state.questions.length*100)+'%';
-  state.qStartTime = Date.now();
-}
-function updateAnswerBox(){
-  const box=$('answerBox');
-  if(state.current===''){ box.textContent='?'; box.classList.add('empty'); }
-  else { box.textContent=state.current; box.classList.remove('empty'); }
-}
-function pressKey(k){
-  if(k==='del'){ state.current=state.current.slice(0,-1); updateAnswerBox(); return; }
-  if(k==='enter'){ submitAnswer(); return; }
-  if(state.current.length>=4) return;
-  state.current += k;
-  updateAnswerBox();
-}
-let locking=false;
-function submitAnswer(){
-  if(locking) return;
-  if(state.current==='') return;
-  const q = state.questions[state.idx];
-  const given = parseInt(state.current,10);
-  const correct = given===q.answer;
-  const timeMs = Date.now()-state.qStartTime;
-  state.results.push({ text:q.text, answer:q.answer, given, correct, timeMs });
-  if(correct) state.score++;
-  // feedback
-  const fb1=$('feedback'), box=$('answerBox');
-  if(correct){ fb1.textContent='Correct! 🌟'; fb1.className='feedback good'; box.className='answer-box good'; }
-  else { fb1.textContent='Answer: '+q.answer; fb1.className='feedback bad'; box.className='answer-box bad'; }
-  $('liveScore').textContent='★ '+state.score;
-  locking=true;
-  setTimeout(()=>{
-    locking=false;
-    state.idx++;
-    if(state.idx>=state.questions.length){ finishSession(); }
-    else loadQuestion();
-  }, correct?600:1300);
-}
-async function finishSession(){
-  $('progressBar').style.width='100%';
-  const timeMs = Date.now()-state.sessionStart;
-  const rec = {
-    id: 'ms_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
-    profile: state.profile||'default',
-    level: state.level.id,
-    levelName: state.level.title+' · '+state.level.sub,
-    total: state.questions.length,
-    correct: state.score,
-    timeMs,
-    date: new Date().toISOString(),
-    questions: state.results,
-  };
-  await saveSession(rec);
-  renderResults(rec);
-  show('results');
-}
-
-/* ---------- Results ---------- */
-function fmtTime(ms){
-  const s=Math.round(ms/1000);
-  const m=Math.floor(s/60), r=s%60;
-  return m>0 ? `${m}:${String(r).padStart(2,'0')}` : `${r}s`;
-}
-function renderResults(rec){
-  const pct = Math.round(rec.correct/rec.total*100);
-  $('resultScore').textContent = rec.correct+' / '+rec.total;
-  $('resultLevel').textContent = rec.levelName;
-  $('resultPct').textContent = pct+'%';
-  $('resultTime').textContent = fmtTime(rec.timeMs);
-  $('resultAvg').textContent = (rec.timeMs/rec.total/1000).toFixed(1)+'s';
-  let e='💪'; if(pct===100) e='🏆'; else if(pct>=80) e='🎉'; else if(pct>=60) e='😊';
-  $('resultEmoji').textContent=e;
-  const list=$('reviewList'); list.innerHTML='';
-  rec.questions.forEach(q=>{
-    const row=document.createElement('div'); row.className='qrow';
-    row.innerHTML = `<span class="q">${q.text} = ${q.answer}</span>
-      <span>${q.correct?'<span class="mark ok">✓</span>':'<span class="yours">you: '+q.given+'</span> <span class="mark no">✗</span>'}</span>`;
-    list.appendChild(row);
-  });
-}
-
-/* ---------- History ---------- */
-async function renderHistory(){
-  show('history');
-  const sessions = await getSessions().catch(()=>loadLocalSessions());
-  // filter dropdown
-  const filt=$('histFilter');
-  const prev = filt.value || 'all';
-  filt.innerHTML = '<option value="all">All levels</option>' +
-    LEVELS.map(L=>`<option value="${L.id}">${L.id}. ${L.title} (${L.sub})</option>`).join('');
-  filt.value = prev;
-  filt.onchange = ()=> drawHistory(sessions);
-  drawHistory(sessions);
-}
-function drawHistory(sessions){
-  const f = $('histFilter').value;
-  const filtered = f==='all'? sessions : sessions.filter(s=> String(s.level)===String(f));
-  const sum=$('histSummary'); const list=$('histList');
-  if(!filtered.length){
-    sum.innerHTML=''; list.innerHTML='<div class="empty-note">No sessions yet — go practise! 🌟</div>'; return;
-  }
-  // summary: totals + sparklines (chronological)
-  const chrono = [...filtered].slice().reverse(); // oldest -> newest
-  const total = filtered.length;
-  const avgPct = Math.round(filtered.reduce((a,s)=>a+s.correct/s.total,0)/total*100);
-  const accSeries = chrono.map(s=> s.correct/s.total*100);
-  const timeSeries = chrono.map(s=> s.timeMs/s.total/1000); // avg sec per q
-  sum.innerHTML = `
-    <div class="hist-card">
-      <div class="hist-top"><div class="hist-name">${total} session${total>1?'s':''}</div>
-        <div class="hist-date">avg ${avgPct}% correct</div></div>
-      <div class="hist-stats"><span>Accuracy over time</span></div>
-      ${sparkline(accSeries, '#34c759', 0, 100)}
-      <div class="hist-stats" style="margin-top:12px"><span>Avg seconds per question (lower = faster)</span></div>
-      ${sparkline(timeSeries, '#9b6dff')}
-    </div>`;
-  // list
-  list.innerHTML='';
-  filtered.slice(0,50).forEach(s=>{
-    const d=new Date(s.date);
-    const card=document.createElement('div'); card.className='hist-card';
-    card.innerHTML = `
-      <div class="hist-top">
-        <div class="hist-name">${s.levelName||('Level '+s.level)}</div>
-        <div class="hist-date">${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
-      </div>
-      <div class="hist-stats">
-        <span>Score <b>${s.correct}/${s.total}</b></span>
-        <span>Time <b>${fmtTime(s.timeMs)}</b></span>
-        <span>Per q <b>${(s.timeMs/s.total/1000).toFixed(1)}s</b></span>
-      </div>`;
-    list.appendChild(card);
-  });
-}
-function sparkline(vals, color, fixedMin, fixedMax){
-  if(vals.length===0) return '';
-  const W=300,H=54,pad=4;
-  let min = fixedMin!==undefined?fixedMin:Math.min(...vals);
-  let max = fixedMax!==undefined?fixedMax:Math.max(...vals);
-  if(max===min){ max=min+1; }
-  const n=vals.length;
-  const x = i=> n===1? W/2 : pad + i*(W-2*pad)/(n-1);
-  const y = v=> H-pad - (v-min)/(max-min)*(H-2*pad);
-  const pts = vals.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
-  const dots = vals.map((v,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${n<=20?3:1.5}" fill="${color}"/>`).join('');
-  const area = `${pad},${H-pad} ${pts} ${(n===1?W/2:W-pad)},${H-pad}`;
-  return `<svg class="spark" width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-    <polygon points="${area}" fill="${color}" opacity="0.10"/>
-    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-    ${dots}
-  </svg>`;
-}
-
-/* ---------- Modals ---------- */
-function openProfile(){ $('profileInput').value = state.profile; $('profileModal').classList.remove('hidden'); }
-function closeProfile(){ $('profileModal').classList.add('hidden'); }
-function openSync(){ $('syncInput').value = localStorage.getItem('ms_fbconfig')||''; $('syncModal').classList.remove('hidden'); }
-function closeSyncM(){ $('syncModal').classList.add('hidden'); }
-
-/* ---------- Event wiring ---------- */
-function wire(){
-  // question count
-  $('qPlus').onclick = ()=>{ state.qPerSession=Math.min(50,state.qPerSession+5); localStorage.setItem('ms_qcount',state.qPerSession); $('qVal').textContent=state.qPerSession; };
-  $('qMinus').onclick = ()=>{ state.qPerSession=Math.max(5,state.qPerSession-5); localStorage.setItem('ms_qcount',state.qPerSession); $('qVal').textContent=state.qPerSession; };
-
-  $('historyBtn').onclick = renderHistory;
-  $('backFromHistory').onclick = ()=>{ show('home'); renderHome(); };
-
-  // keypad
-  document.querySelectorAll('.key').forEach(b=> b.onclick = ()=> pressKey(b.dataset.k));
-  $('quitBtn').onclick = ()=>{ if(confirm('Quit this session? Progress will not be saved.')){ show('home'); renderHome(); } };
-
-  // results buttons
-  $('againBtn').onclick = ()=> startSession(state.level);
-  $('homeFromResults').onclick = ()=>{ show('home'); renderHome(); };
-
-  // profile
-  $('profileBtn').onclick = openProfile;
-  $('saveProfile').onclick = ()=>{
-    const v=$('profileInput').value.trim();
-    state.profile = v || 'Player';
-    localStorage.setItem('ms_profile', state.profile);
-    closeProfile(); renderHome();
-  };
-  $('openSyncBtn').onclick = ()=>{ closeProfile(); openSync(); };
-
-  // sync
-  $('saveSync').onclick = async ()=>{
-    const v=$('syncInput').value.trim();
-    if(v===''){ localStorage.removeItem('ms_fbconfig'); fb=null; setSyncTag(false); closeSyncM(); renderHome(); return; }
-    try{ JSON.parse(v); }catch(e){ alert('That doesn\'t look like valid JSON. Copy the whole { ... } config object.'); return; }
-    localStorage.setItem('ms_fbconfig', v);
-    closeSyncM();
-    await initFirebase();
-    renderHome();
-  };
-  $('closeSync').onclick = closeSyncM;
-
-  // physical keyboard
-  document.addEventListener('keydown', e=>{
-    if($('screen-session').classList.contains('hidden')) return;
-    if(e.key>='0'&&e.key<='9') pressKey(e.key);
-    else if(e.key==='Enter') pressKey('enter');
-    else if(e.key==='Backspace'){ e.preventDefault(); pressKey('del'); }
-  });
-
-  // dismiss modals on backdrop tap
-  document.querySelectorAll('.modal-bg').forEach(m=> m.addEventListener('click', e=>{ if(e.target===m) m.classList.add('hidden'); }));
-}
-
-/* ---------- Boot ---------- */
-async function boot(){
-  wire();
-  if(!state.profile){ openProfile(); }
-  await initFirebase();
-  renderHome();
-}
-boot();
-</script>
+<script type="module" src="src/app.js"></script>
 </body>
 </html>
