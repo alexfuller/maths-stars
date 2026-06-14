@@ -24,6 +24,7 @@ The UI markup lives in **`index.html`**; the JavaScript is split into small ES m
 - **Hidden timer** — the clock is never shown during a session (no pressure), but total time, time-per-question, score, answers, and the date are all saved.
 - **History & progress** — tap **📊 History** to see past sessions, filter by level, and view accuracy and speed trends.
 - **Family & players** — everyone shares a **family name**, and each person has their own **player name** within it. On first use you enter the family name, then your player name. Tap the **👪 / 👤** label at the top right to switch player or change family. Scores are kept per player but the whole family can see each other's history.
+- **Stars & rewards** ⭐ — every session earns stars: a base amount for finishing (more for longer sessions), bonuses for accuracy, speed, beating your personal best, trying a new level, and harder levels. Practising on consecutive days builds a **daily streak** 🔥 with milestone bonuses. Your running total fills a **night sky** on the home screen that levels up through collectible tiers (Stargazer → Comet → …). Rewards are personal — each player races their own best, not a family leaderboard.
 
 ---
 
@@ -52,7 +53,7 @@ npm test             # → node --test on tests/*.test.js
 Layout:
 - `index.html` — markup and styles
 - `src/app.js` — UI wiring, storage, Firebase (the side-effecty shell)
-- `src/logic/` — pure logic: `questions.js`, `schema.js`, `storage-keys.js`, `stats.js`
+- `src/logic/` — pure logic: `questions.js`, `schema.js`, `storage-keys.js`, `stats.js`, `rewards.js`
 - `tests/` — unit tests for the logic modules
 
 ---

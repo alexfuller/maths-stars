@@ -167,6 +167,29 @@
   .sync-off{background:var(--yellow-soft);color:#b07d00}
   textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;width:100%;min-height:120px;border-radius:12px;border:2px solid var(--line);padding:10px}
   footer.tip{text-align:center;color:var(--muted);font-size:12px;margin-top:26px;line-height:1.5}
+
+  /* Star total tag in header */
+  .star-tag{font-size:13px;font-weight:800;color:#b07d00;background:var(--yellow-soft);padding:3px 9px;border-radius:999px;white-space:nowrap}
+
+  /* Night sky meta (home) */
+  .night-sky{margin:14px 2px 2px}
+  .sky-box{position:relative;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  .sky-svg{display:block;width:100%;height:120px;background:linear-gradient(160deg,#2a2160,#161232)}
+  .sky-overlay{position:absolute;left:16px;bottom:12px;color:#fff}
+  .sky-total{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1}
+  .sky-tier{font-size:13px;font-weight:700;color:#ffe9a8;margin-top:2px}
+  .sky-meta{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;font-weight:700;color:var(--muted);margin:8px 4px 0}
+  .sky-progress{height:8px;background:var(--line);border-radius:999px;overflow:hidden;margin:6px 2px 0}
+  .sky-progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--yellow),var(--pink));border-radius:999px;transition:width .4s ease}
+
+  /* Star award (results) */
+  .star-award{border:2px solid var(--yellow-soft);background:#fffdf6;border-radius:var(--radius);padding:14px;margin:6px 0 4px;text-align:center}
+  .star-total{font-size:34px;font-weight:800;color:#c98a00;letter-spacing:-.5px}
+  .star-total-sub{font-size:12.5px;font-weight:700;color:var(--muted);margin-top:-2px}
+  .star-breakdown{margin-top:10px;text-align:left}
+  .star-row{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700;padding:5px 2px;border-top:1px solid var(--line)}
+  .star-row:first-child{border-top:none}
+  .star-amt{color:#c98a00;font-weight:800;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -175,6 +198,7 @@
   <header class="top">
     <div class="brand"><span class="logo">⭐</span><span>Maths Stars</span></div>
     <div class="who">
+      <span id="starTotal" class="star-tag">⭐ 0</span>
       <span id="syncTag" class="sync-tag sync-off">On this device</span>
       <button class="linklike" id="profileBtn">👪 <span id="familyName">Family</span> · 👤 <span id="profileName">Player</span></button>
     </div>
@@ -191,6 +215,8 @@
       </div>
       <button class="btn ghost" id="historyBtn" style="margin-left:auto">📊 History</button>
     </div>
+
+    <div id="nightSky" class="night-sky"></div>
 
     <h2 class="section">Pick a practice</h2>
     <div class="grid" id="levelGrid"></div>
@@ -234,6 +260,7 @@
       <div class="score-big" id="resultScore">8 / 10</div>
       <div class="score-sub" id="resultLevel">Addition under 10</div>
     </div>
+    <div id="resultStars"></div>
     <div class="stat-row">
       <div class="stat"><div class="v" id="resultPct">80%</div><div class="l">Correct</div></div>
       <div class="stat"><div class="v" id="resultTime">0:42</div><div class="l">Total time</div></div>

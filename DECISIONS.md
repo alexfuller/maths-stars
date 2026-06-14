@@ -112,3 +112,35 @@ unaffected: GitHub Pages serves over HTTPS with correct MIME types, where native
 work without a build. Tests require Node (dev-only; not a runtime dependency). Storage
 helpers that touch `localStorage` (`runLocalMigrations`, `adoptLegacyData`) stayed in
 `app.js` and are not yet unit-tested — covered indirectly by a browser smoke test for now.
+
+---
+
+## 5. Star rewards are derived-and-stored, not a mutable balance
+
+**Date:** 2026-06-14
+
+**Decision.** Each session earns stars (base scaled by length + bonuses for accuracy,
+speed-vs-PB, new PB, first try, difficulty, and daily-streak ongoing/milestone). Stars are
+computed **when the session finishes**, using the player's prior history, and the breakdown
+is **stored on the session record** (`stars: { base, accuracy, speed, pb, firstTry,
+difficulty, streak, milestone, total }`). A player's total is the **sum of `stars.total`**
+across their sessions. Logic lives in pure `src/logic/rewards.js` (`STAR_CONFIG` holds all
+tunable numbers); it's heavily unit-tested. Schema bumped to **v4**: `normalizeRecord`
+backfills a *context-free* estimate (base + accuracy + difficulty only) for legacy/old-client
+records that lack `stars`. The night sky on Home shows the running total + streak + next
+collectible tier.
+
+**Why.** Deriving-and-storing avoids a separate mutable "stars balance" that would need its
+own sync and could diverge between local and cloud (the exact problem the storage model was
+designed to avoid). Summing per-record stars is recomputable, attributable, and tamper-
+resistant, and it lets the results screen show a stable, explainable breakdown. Storing the
+breakdown (rather than recomputing on read) is necessary because streak/PB bonuses depend on
+cross-session context that single-record `normalizeRecord` can't see. Calibrated so a good
+no-streak 10q session ≈ 5 stars; rewards are self-referential (own PB/streak/sky) to stay
+age-fair across siblings — no family leaderboard.
+
+**Consequences.** Legacy sessions get base/accuracy/difficulty stars only — no retroactive
+streak/PB (those need an ordered replay we deliberately skip). Changing `STAR_CONFIG`
+re-prices **future** sessions only; already-stored stars don't change unless re-computed.
+Stars are computed at finish using a fresh `getSessions()` read (falls back to local), so a
+slow cloud read briefly delays the results screen — acceptable for one read.

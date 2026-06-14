@@ -3,7 +3,9 @@
    on read). The localStorage-touching parts (STORE_MIGRATIONS,
    runLocalMigrations, adoptLegacyData) live in app.js, not here. */
 
-export const SCHEMA_VERSION = 3;   // bump whenever the record shape changes
+import { contextFreeStars } from './rewards.js';
+
+export const SCHEMA_VERSION = 4;   // bump whenever the record shape changes
 
 /* ---------- Per-record migrations ----------------------------------
    Each entry upgrades a record FROM the previous version TO `to`.
@@ -27,6 +29,15 @@ export const RECORD_MIGRATIONS = [
       // Introduce family grouping. Pre-family records default to 'default'
       // family (they were all effectively one household before this).
       return { ...r, family: r.family || 'default' };
+    },
+  },
+  {
+    to: 4,
+    up(r){
+      // Introduce star rewards. Records that already carry stars (written by
+      // current code) keep them; legacy/old-client records get a context-free
+      // estimate so past effort still counts toward the night sky.
+      return r.stars ? r : { ...r, stars: contextFreeStars(r) };
     },
   },
 ];

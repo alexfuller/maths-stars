@@ -7,6 +7,7 @@ import { LEVELS, makeSession } from './logic/questions.js';
 import { SCHEMA_VERSION, normalizeRecords } from './logic/schema.js';
 import { enc, sessionKey, familyPrefix, isLegacySessionKey, legacyPlayer } from './logic/storage-keys.js';
 import { bestForLevel, fmtTime } from './logic/stats.js';
+import { computeSessionStars, totalStars, currentStreak, tierFor, nextTier } from './logic/rewards.js';
 
 /* ============================================================
    Local-store helpers + key-layout migrations
@@ -42,6 +43,16 @@ const STORE_MIGRATIONS = [
       // Re-keying legacy `ms_sessions_<player>` keys into the
       // `ms_sessions_<family>|<player>` namespace happens later in
       // adoptLegacyData(), once the user has named their family.
+      for(const key of allSessionKeys()){
+        localStorage.setItem(key, JSON.stringify(normalizeRecords(safeParse(localStorage.getItem(key), []))));
+      }
+    },
+  },
+  {
+    to: 4,
+    up(){
+      // Re-stamp so existing local sessions carry their (context-free) stars
+      // on disk. The normalize() chain adds them; see schema.js v4.
       for(const key of allSessionKeys()){
         localStorage.setItem(key, JSON.stringify(normalizeRecords(safeParse(localStorage.getItem(key), []))));
       }
@@ -174,6 +185,8 @@ async function renderHome(){
   grid.innerHTML='';
   const all = await getSessions().catch(()=>loadLocalFamilySessions());
   const mine = all.filter(s=> (s.profile||'default') === (state.profile||'default'));
+  $('starTotal').textContent = '⭐ ' + totalStars(mine);
+  renderNightSky(mine);
   LEVELS.forEach(L=>{
     const best = bestForLevel(L.id, mine);
     const div=document.createElement('button');
@@ -262,6 +275,10 @@ async function finishSession(){
     date: new Date().toISOString(),
     questions: state.results,
   };
+  // Award stars using this player's prior history (for PB / speed / streak).
+  const prior = (await getSessions().catch(()=>loadLocalFamilySessions()))
+    .filter(s=> (s.profile||'default') === (state.profile||'default'));
+  rec.stars = computeSessionStars(rec, prior);
   await saveSession(rec);
   renderResults(rec);
   show('results');
@@ -277,6 +294,7 @@ function renderResults(rec){
   $('resultAvg').textContent = (rec.timeMs/rec.total/1000).toFixed(1)+'s';
   let e='💪'; if(pct===100) e='🏆'; else if(pct>=80) e='🎉'; else if(pct>=60) e='😊';
   $('resultEmoji').textContent=e;
+  renderStarAward(rec.stars);
   const list=$('reviewList'); list.innerHTML='';
   rec.questions.forEach(q=>{
     const row=document.createElement('div'); row.className='qrow';
@@ -284,6 +302,72 @@ function renderResults(rec){
       <span>${q.correct?'<span class="mark ok">✓</span>':'<span class="yours">you: '+q.given+'</span> <span class="mark no">✗</span>'}</span>`;
     list.appendChild(row);
   });
+}
+
+/* Star-award breakdown shown on the results screen. */
+const STAR_LABELS = {
+  base:       'Practice done',
+  accuracy:   'Accuracy',
+  speed:      'Speedy 💨',
+  pb:         'New personal best ✨',
+  firstTry:   'First try at this level',
+  difficulty: 'Tough level',
+  streak:     'Streak bonus 🔥',
+  milestone:  'Streak milestone! 🔥',
+};
+function renderStarAward(stars){
+  const wrap = $('resultStars');
+  if(!stars){ wrap.innerHTML=''; return; }
+  const rows = Object.keys(STAR_LABELS)
+    .filter(k=> stars[k] > 0)
+    .map(k=> `<div class="star-row"><span>${STAR_LABELS[k]}</span><span class="star-amt">+${stars[k]} ⭐</span></div>`)
+    .join('');
+  wrap.innerHTML = `
+    <div class="star-award">
+      <div class="star-total">+${stars.total} ⭐</div>
+      <div class="star-total-sub">stars earned${stars.streakLen>=2 ? ' · 🔥 '+stars.streakLen+'-day streak' : ''}</div>
+      <div class="star-breakdown">${rows}</div>
+    </div>`;
+}
+
+/* Night-sky meta panel on Home — fills with stars as the total grows. */
+function renderNightSky(sessions){
+  const sky = $('nightSky');
+  if(!sky) return;
+  const total = totalStars(sessions);
+  const streak = currentStreak(sessions);
+  const tier = tierFor(total);
+  const next = nextTier(total);
+  const toNext = next ? next.at - total : 0;
+  // plot up to 80 little stars at deterministic positions (stable across renders)
+  const shown = Math.min(total, 80);
+  let dots='';
+  for(let i=0;i<shown;i++){
+    const hx = (i*73 + 17) % 100;          // cheap deterministic scatter
+    const hy = (i*37 + 11) % 100;
+    const x = 4 + hx/100*92;
+    const y = 14 + hy/100*72;
+    const r = (i % 7 === 0) ? 1.9 : 1.2;
+    dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="#ffe9a8" opacity="${(0.55 + (i%5)*0.09).toFixed(2)}"/>`;
+  }
+  const progress = next ? Math.round((total - tier.at) / (next.at - tier.at) * 100) : 100;
+  sky.innerHTML = `
+    <div class="sky-box">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="sky-svg">
+        <circle cx="84" cy="20" r="9" fill="#fff4cf"/>
+        <circle cx="80" cy="18" r="9" fill="#1c1740"/>
+        ${dots}
+      </svg>
+      <div class="sky-overlay">
+        <div class="sky-total">⭐ ${total}</div>
+        <div class="sky-tier">${tier.name}</div>
+      </div>
+    </div>
+    <div class="sky-meta">
+      <span>${streak>0 ? '🔥 '+streak+'-day streak' : 'Practise daily to start a streak 🔥'}</span>
+      <span>${next ? toNext+' ⭐ to '+next.name : 'Top tier reached! 🌌'}</span>
+    </div>
+    <div class="sky-progress"><div class="sky-progress-bar" style="width:${progress}%"></div></div>`;
 }
 
 /* ---------- History ---------- */
@@ -345,7 +429,7 @@ function drawHistory(sessions){
         <span>👤 <b>${s.profile||'default'}</b></span>
         <span>Score <b>${s.correct}/${s.total}</b></span>
         <span>Time <b>${fmtTime(s.timeMs)}</b></span>
-        <span>Per q <b>${(s.timeMs/s.total/1000).toFixed(1)}s</b></span>
+        <span>⭐ <b>${(s.stars&&s.stars.total)||0}</b></span>
       </div>`;
     list.appendChild(card);
   });
