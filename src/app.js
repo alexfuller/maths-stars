@@ -339,23 +339,25 @@ function renderNightSky(sessions){
   const tier = tierFor(total);
   const next = nextTier(total);
   const toNext = next ? next.at - total : 0;
-  // plot up to 80 little stars at deterministic positions (stable across renders)
+  // plot up to 80 little stars at deterministic positions (stable across renders).
+  // viewBox is 200x70 and scaled uniformly (slice), so circles stay round at any
+  // width; keep content inside the slice-safe band (x 10–190, y 16–54).
   const shown = Math.min(total, 80);
   let dots='';
   for(let i=0;i<shown;i++){
     const hx = (i*73 + 17) % 100;          // cheap deterministic scatter
     const hy = (i*37 + 11) % 100;
-    const x = 4 + hx/100*92;
-    const y = 14 + hy/100*72;
-    const r = (i % 7 === 0) ? 1.9 : 1.2;
+    const x = 10 + hx/100*180;
+    const y = 16 + hy/100*38;
+    const r = (i % 7 === 0) ? 1.7 : 1.1;
     dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="#ffe9a8" opacity="${(0.55 + (i%5)*0.09).toFixed(2)}"/>`;
   }
   const progress = next ? Math.round((total - tier.at) / (next.at - tier.at) * 100) : 100;
   sky.innerHTML = `
     <div class="sky-box">
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="sky-svg">
-        <circle cx="84" cy="20" r="9" fill="#fff4cf"/>
-        <circle cx="80" cy="18" r="9" fill="#1c1740"/>
+      <svg viewBox="0 0 200 70" preserveAspectRatio="xMidYMid slice" class="sky-svg">
+        <circle cx="170" cy="24" r="7.5" fill="#fff4cf"/>
+        <circle cx="164" cy="21" r="7.5" fill="#1c1740"/>
         ${dots}
       </svg>
       <div class="sky-overlay">
