@@ -175,6 +175,9 @@
   .night-sky{margin:14px 2px 2px}
   .sky-box{position:relative;border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
   .sky-svg{display:block;width:100%;height:120px;background:linear-gradient(160deg,#2a2160,#161232)}
+  .sky-star{animation:sky-twinkle 3s ease-in-out infinite}
+  @keyframes sky-twinkle{0%,100%{opacity:.4}50%{opacity:1}}
+  @media (prefers-reduced-motion: reduce){ .sky-star{animation:none} }
   .sky-overlay{position:absolute;left:16px;bottom:12px;color:#fff}
   .sky-total{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1}
   .sky-tier{font-size:13px;font-weight:700;color:#ffe9a8;margin-top:2px}

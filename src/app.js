@@ -339,26 +339,33 @@ function renderNightSky(sessions){
   const tier = tierFor(total);
   const next = nextTier(total);
   const toNext = next ? next.at - total : 0;
-  // plot up to 80 little stars at deterministic positions (stable across renders).
-  // viewBox is 200x70 and scaled uniformly (slice), so circles stay round at any
-  // width; keep content inside the slice-safe band (x 10–190, y 16–54).
+  // plot up to 80 five-pointed stars at deterministic positions (stable across
+  // renders). viewBox is 200x70 and scaled uniformly (slice), so stars keep their
+  // shape at any width; keep content inside the slice-safe band (x 10–190, y 16–54).
+  // Each star is a <use> of one unit star path, twinkling on a staggered cycle.
   const shown = Math.min(total, 80);
-  let dots='';
+  let stars='';
   for(let i=0;i<shown;i++){
     const hx = (i*73 + 17) % 100;          // cheap deterministic scatter
     const hy = (i*37 + 11) % 100;
     const x = 10 + hx/100*180;
     const y = 16 + hy/100*38;
-    const r = (i % 7 === 0) ? 1.7 : 1.1;
-    dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="#ffe9a8" opacity="${(0.55 + (i%5)*0.09).toFixed(2)}"/>`;
+    const s = (i % 7 === 0) ? 2.0 : 1.25;  // a few larger feature stars
+    const op = (0.55 + (i%5)*0.09).toFixed(2);
+    const dur = (2.4 + (i%5)*0.5).toFixed(1);
+    const delay = ((i*0.7) % 3).toFixed(1);
+    stars += `<use href="#skStar" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${s})" fill="#ffe9a8" class="sky-star" style="opacity:${op};animation-duration:${dur}s;animation-delay:${delay}s"/>`;
   }
   const progress = next ? Math.round((total - tier.at) / (next.at - tier.at) * 100) : 100;
   sky.innerHTML = `
     <div class="sky-box">
       <svg viewBox="0 0 200 70" preserveAspectRatio="xMidYMid slice" class="sky-svg">
+        <defs>
+          <path id="skStar" d="M0,-1 L0.235,-0.324 L0.951,-0.309 L0.380,0.124 L0.588,0.809 L0,0.4 L-0.588,0.809 L-0.380,0.124 L-0.951,-0.309 L-0.235,-0.324 Z"/>
+        </defs>
         <circle cx="170" cy="24" r="7.5" fill="#fff4cf"/>
         <circle cx="164" cy="21" r="7.5" fill="#1c1740"/>
-        ${dots}
+        ${stars}
       </svg>
       <div class="sky-overlay">
         <div class="sky-total">⭐ ${total}</div>
