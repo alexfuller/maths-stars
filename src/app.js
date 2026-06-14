@@ -330,6 +330,18 @@ function renderStarAward(stars){
     </div>`;
 }
 
+/* Deterministic [0,1) hash for a single integer — well-scrambled so star
+   positions look scattered rather than forming arithmetic bands. Stable across
+   renders (same star index -> same value), so stars don't jump on re-render. */
+function starRand(n){
+  n = (n ^ 61) ^ (n >>> 16);
+  n = (n + (n << 3)) | 0;
+  n = n ^ (n >>> 4);
+  n = Math.imul(n, 0x27d4eb2d);
+  n = n ^ (n >>> 15);
+  return (n >>> 0) / 4294967296;
+}
+
 /* Night-sky meta panel on Home — fills with stars as the total grows. */
 function renderNightSky(sessions){
   const sky = $('nightSky');
@@ -346,14 +358,12 @@ function renderNightSky(sessions){
   const shown = Math.min(total, 80);
   let stars='';
   for(let i=0;i<shown;i++){
-    const hx = (i*73 + 17) % 100;          // cheap deterministic scatter
-    const hy = (i*37 + 11) % 100;
-    const x = 10 + hx/100*180;
-    const y = 16 + hy/100*38;
-    const s = (i % 7 === 0) ? 2.0 : 1.25;  // a few larger feature stars
-    const op = (0.55 + (i%5)*0.09).toFixed(2);
-    const dur = (2.4 + (i%5)*0.5).toFixed(1);
-    const delay = ((i*0.7) % 3).toFixed(1);
+    const x = 10 + starRand(i*2 + 1) * 180;        // scattered within the safe band
+    const y = 16 + starRand(i*2 + 2) * 38;
+    const s = starRand(i + 101) < 0.18 ? 2.0 : 1.25;  // ~18% larger feature stars
+    const op = (0.5 + starRand(i + 202) * 0.45).toFixed(2);
+    const dur = (2.4 + starRand(i + 303) * 2.2).toFixed(1);
+    const delay = (starRand(i + 404) * 3).toFixed(1);
     stars += `<use href="#skStar" transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${s})" fill="#ffe9a8" class="sky-star" style="opacity:${op};animation-duration:${dur}s;animation-delay:${delay}s"/>`;
   }
   const progress = next ? Math.round((total - tier.at) / (next.at - tier.at) * 100) : 100;
