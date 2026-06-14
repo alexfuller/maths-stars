@@ -26,7 +26,10 @@
     --radius:22px;
     --shadow:0 10px 30px rgba(120,100,200,.12);
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  /* touch-action:manipulation stops iOS double-tap-to-zoom (and the legacy 300ms
+     tap delay) on fast repeat taps — e.g. tapping "1" twice for "11" on the keypad.
+     Scrolling and pinch-zoom still work. */
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   html,body{margin:0;padding:0}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
