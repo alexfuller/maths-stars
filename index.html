@@ -180,6 +180,16 @@
   .sky-star{animation:sky-twinkle 3s ease-in-out infinite}
   @keyframes sky-twinkle{0%,100%{opacity:.4}50%{opacity:1}}
   @media (prefers-reduced-motion: reduce){ .sky-star{animation:none} }
+
+  /* Constellations (Constellation tier): fade in, draw lines, name, fade out.
+     3 share one 27s cycle, staggered 0/9/18s so one shows at a time. */
+  .cst{opacity:0;animation:cst-show 27s ease-in-out infinite}
+  @keyframes cst-show{0%,3%{opacity:0}6%,22%{opacity:1}26%,100%{opacity:0}}
+  .cst-star{opacity:.95}
+  .cst-line{stroke:#a9c6ff;stroke-width:.5;stroke-linecap:round;animation:cst-draw 27s ease-in-out infinite}
+  @keyframes cst-draw{0%,6%{stroke-dashoffset:var(--len)}16%,100%{stroke-dashoffset:0}}
+  .cst-name{fill:#e6eeff;font-size:6px;font-weight:800;letter-spacing:1px;opacity:0;animation:cst-name 27s ease-in-out infinite}
+  @keyframes cst-name{0%,14%{opacity:0}18%,22%{opacity:1}26%,100%{opacity:0}}
   .sky-overlay{position:absolute;left:16px;bottom:12px;color:#fff}
   .sky-total{font-size:30px;font-weight:800;letter-spacing:-.5px;line-height:1}
   .sky-tier{font-size:13px;font-weight:700;color:#ffe9a8;margin-top:2px}

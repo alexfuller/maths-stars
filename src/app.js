@@ -7,7 +7,7 @@ import { LEVELS, makeSession } from './logic/questions.js';
 import { SCHEMA_VERSION, normalizeRecords } from './logic/schema.js';
 import { enc, sessionKey, familyPrefix, isLegacySessionKey, legacyPlayer } from './logic/storage-keys.js';
 import { bestForLevel, fmtTime } from './logic/stats.js';
-import { computeSessionStars, totalStars, currentStreak, tierFor, nextTier } from './logic/rewards.js';
+import { computeSessionStars, totalStars, currentStreak, tierFor, nextTier, STAR_TIERS } from './logic/rewards.js';
 
 /* ============================================================
    Local-store helpers + key-layout migrations
@@ -341,7 +341,39 @@ function starRand(n){
   return (n >>> 0) / 4294967296;
 }
 
-/* Night-sky meta panel on Home — fills with stars as the total grows. */
+/* Recognisable constellations that appear once the Constellation tier is reached.
+   Coordinates are in the 200x70 sky viewBox, kept within the slice-safe band.
+   `stars` are [x,y]; `lines` are [fromIndex,toIndex] pairs drawn between them. */
+const CONSTELLATIONS = [
+  { name:'Orion',
+    stars:[[88,24],[112,22],[94,34],[99,35],[104,36],[90,48],[112,47]],
+    lines:[[0,2],[1,4],[2,3],[3,4],[2,5],[4,6]] },                 // shoulders, belt, feet
+  { name:'The Great Bear',
+    stars:[[85,25],[85,31],[95,32],[95,26],[103,24],[110,26],[117,30]],
+    lines:[[0,1],[1,2],[2,3],[3,0],[3,4],[4,5],[5,6]] },           // the Plough: bowl + handle
+  { name:'The Southern Cross',
+    stars:[[100,21],[101,42],[90,31],[111,33],[98,37]],
+    lines:[[0,1],[2,3]] },                                         // the cross
+];
+
+/* One constellation as an SVG <g> that fades in, draws its lines, shows its
+   name, then fades out — staggered by `delay` so only one shows at a time. */
+function constellationSVG(def, delay){
+  const lines = def.lines.map(([a,b])=>{
+    const [x1,y1]=def.stars[a], [x2,y2]=def.stars[b];
+    const len = Math.hypot(x2-x1, y2-y1).toFixed(1);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="cst-line"`
+      + ` style="--len:${len};stroke-dasharray:${len};stroke-dashoffset:${len};animation-delay:${delay}s"/>`;
+  }).join('');
+  const pts = def.stars.map(([x,y])=>
+    `<use href="#skStar" transform="translate(${x} ${y}) scale(1.7)" fill="#fff7df" class="cst-star"/>`).join('');
+  const name = `<text x="100" y="53" text-anchor="middle" class="cst-name" style="animation-delay:${delay}s">${def.name}</text>`;
+  return `<g class="cst" style="animation-delay:${delay}s">${lines}${pts}${name}</g>`;
+}
+
+/* Night-sky meta panel on Home — fills with stars as the total grows, and gains
+   tier rewards: a comet flying past (Comet tier) and named constellations that
+   draw themselves in (Constellation tier). */
 function renderNightSky(sessions){
   const sky = $('nightSky');
   if(!sky) return;
@@ -350,6 +382,25 @@ function renderNightSky(sessions){
   const tier = tierFor(total);
   const next = nextTier(total);
   const toNext = next ? next.at - total : 0;
+  // Tier rewards — comet at Comet tier, constellations at Constellation tier.
+  // Disabled under prefers-reduced-motion (these are the motion-heavy bits).
+  const tierAt = name => (STAR_TIERS.find(t=>t.name===name)||{}).at ?? Infinity;
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const showComet = total >= tierAt('Comet') && !reduceMotion;
+  const showConstellations = total >= tierAt('Constellation') && !reduceMotion;
+  const constellations = showConstellations
+    ? CONSTELLATIONS.map((c,i)=> constellationSVG(c, i*9)).join('')   // staggered 0/9/18s
+    : '';
+  const comet = showComet ? `
+        <g class="comet" opacity="0">
+          <circle r="4.5" fill="url(#cometGlow)"/>
+          <path d="M0,0 L-1.8,-1.3 L-22,0 L-1.8,1.3 Z" fill="url(#cometTail)"/>
+          <circle r="2" fill="url(#cometHead)"/>
+          <animateMotion dur="14s" repeatCount="indefinite" rotate="auto" calcMode="linear"
+            keyTimes="0;0.5;0.68;1" keyPoints="0;0;1;1" path="M-30,-8 Q100,6 235,76"/>
+          <animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="linear"
+            keyTimes="0;0.5;0.55;0.64;0.68;1" values="0;0;1;1;0;0"/>
+        </g>` : '';
   // plot up to 80 five-pointed stars at deterministic positions (stable across
   // renders). viewBox is 200x70 and scaled uniformly (slice), so stars keep their
   // shape at any width; keep content inside the slice-safe band (x 10–190, y 16–54).
@@ -371,10 +422,15 @@ function renderNightSky(sessions){
       <svg viewBox="0 0 200 70" preserveAspectRatio="xMidYMid slice" class="sky-svg">
         <defs>
           <path id="skStar" d="M0,-1 L0.235,-0.324 L0.951,-0.309 L0.380,0.124 L0.588,0.809 L0,0.4 L-0.588,0.809 L-0.380,0.124 L-0.951,-0.309 L-0.235,-0.324 Z"/>
+          <radialGradient id="cometHead"><stop offset="0" stop-color="#ffffff"/><stop offset="0.5" stop-color="#eaf3ff"/><stop offset="1" stop-color="#cfe0ff" stop-opacity="0"/></radialGradient>
+          <radialGradient id="cometGlow"><stop offset="0" stop-color="#bcd6ff" stop-opacity="0.5"/><stop offset="1" stop-color="#bcd6ff" stop-opacity="0"/></radialGradient>
+          <linearGradient id="cometTail" x1="0" y1="0" x2="-22" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#dcebff" stop-opacity="0.95"/><stop offset="0.5" stop-color="#bcd6ff" stop-opacity="0.4"/><stop offset="1" stop-color="#bcd6ff" stop-opacity="0"/></linearGradient>
         </defs>
         <circle cx="170" cy="24" r="7.5" fill="#fff4cf"/>
         <circle cx="164" cy="21" r="7.5" fill="#1c1740"/>
         ${stars}
+        ${constellations}
+        ${comet}
       </svg>
       <div class="sky-overlay">
         <div class="sky-total">⭐ ${total}</div>
