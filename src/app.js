@@ -185,7 +185,6 @@ async function renderHome(){
   grid.innerHTML='';
   const all = await getSessions().catch(()=>loadLocalFamilySessions());
   const mine = all.filter(s=> (s.profile||'default') === (state.profile||'default'));
-  $('starTotal').textContent = '⭐ ' + totalStars(mine);
   renderNightSky(mine);
   LEVELS.forEach(L=>{
     const best = bestForLevel(L.id, mine);

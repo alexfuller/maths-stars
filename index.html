@@ -53,9 +53,9 @@
     background:linear-gradient(135deg,var(--pink),var(--purple));color:#fff;font-size:20px;
     box-shadow:var(--shadow);
   }
-  .who{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .who{font-size:13px;color:var(--muted);display:flex;flex-direction:column;align-items:flex-end;gap:6px}
   .who b{color:var(--ink)}
-  .linklike{background:none;border:none;color:var(--purple);font-weight:700;font-size:13px;cursor:pointer;padding:6px 4px}
+  .linklike{background:none;border:none;color:var(--purple);font-weight:700;font-size:13px;cursor:pointer;padding:6px 4px;white-space:nowrap}
 
   h2.section{font-size:15px;color:var(--muted);font-weight:700;margin:22px 4px 10px;letter-spacing:.2px;text-transform:uppercase}
 
@@ -165,14 +165,13 @@
   .modal .row{display:flex;gap:10px;margin-top:14px}
   .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
   .field label{font-size:13px;font-weight:700;color:var(--muted)}
-  .sync-tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px}
+  .sync-tag{font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;white-space:nowrap}
   .sync-on{background:var(--green-soft);color:#1c8b3a}
   .sync-off{background:var(--yellow-soft);color:#b07d00}
   textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;width:100%;min-height:120px;border-radius:12px;border:2px solid var(--line);padding:10px}
   footer.tip{text-align:center;color:var(--muted);font-size:12px;margin-top:26px;line-height:1.5}
 
   /* Star total tag in header */
-  .star-tag{font-size:13px;font-weight:800;color:#b07d00;background:var(--yellow-soft);padding:3px 9px;border-radius:999px;white-space:nowrap}
 
   /* Night sky meta (home) */
   .night-sky{margin:14px 2px 2px}
@@ -204,7 +203,6 @@
   <header class="top">
     <div class="brand"><span class="logo">⭐</span><span>Maths Stars</span></div>
     <div class="who">
-      <span id="starTotal" class="star-tag">⭐ 0</span>
       <span id="syncTag" class="sync-tag sync-off">On this device</span>
       <button class="linklike" id="profileBtn">👪 <span id="familyName">Family</span> · 👤 <span id="profileName">Player</span></button>
     </div>
